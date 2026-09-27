@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const {
   AttachmentBuilder,
   ContainerBuilder,
@@ -393,6 +393,40 @@ const TRUEFALSE_BANK = [
 const ASSETS_DIR = path.join(__dirname, 'assets');
 const imageCache = new Map();
 
+// Les hebergeurs comme Railway tournent sur des conteneurs minimaux qui n'ont
+// AUCUNE police systeme installee : demander "sans-serif" y donne du texte invisible.
+// On bundle donc notre propre police (Poppins, licence OFL) et on l'enregistre
+// explicitement pour que le rendu soit identique partout, peu importe l'hote.
+const FONTS_DIR = path.join(ASSETS_DIR, 'fonts');
+const FONT_FAMILY = 'Havre Poppins';
+
+function registerBundledFonts() {
+  const files = ['Poppins-Regular.ttf', 'Poppins-SemiBold.ttf', 'Poppins-Bold.ttf'];
+  let atLeastOne = false;
+  for (const file of files) {
+    const fontPath = path.join(FONTS_DIR, file);
+    try {
+      if (!fs.existsSync(fontPath)) {
+        console.warn(`[fonts] Police manquante : ${fontPath} (les cartes risquent d'afficher du texte invisible)`);
+        continue;
+      }
+      GlobalFonts.registerFromPath(fontPath, FONT_FAMILY);
+      atLeastOne = true;
+    } catch (err) {
+      console.error(`[fonts] Echec de l'enregistrement de ${file}`, err);
+    }
+  }
+  if (!atLeastOne) {
+    console.error(
+      '[fonts] Aucune police bundlee n\'a pu etre chargee depuis assets/fonts/. ' +
+      'Verifie que le dossier assets/fonts contient bien Poppins-Regular.ttf, ' +
+      'Poppins-SemiBold.ttf et Poppins-Bold.ttf et qu\'il est bien commit / deploye.'
+    );
+  }
+}
+
+registerBundledFonts();
+
 async function getBaseImage(color) {
   if (imageCache.has(color)) return imageCache.get(color);
   const img = await loadImage(path.join(ASSETS_DIR, `${color}.png`));
@@ -442,7 +476,7 @@ async function generateCard({ color, label, question, footer }) {
   let labelHeight = 0;
   if (label) {
     const labelSize = Math.round(H * 0.05);
-    ctx.font = `bold ${labelSize}px sans-serif`;
+    ctx.font = `bold ${labelSize}px "${FONT_FAMILY}"`;
     ctx.fillStyle = theme.accent;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -460,7 +494,7 @@ async function generateCard({ color, label, question, footer }) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   do {
-    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.font = `bold ${fontSize}px "${FONT_FAMILY}"`;
     lines = wrapText(ctx, question, boxW * 0.94);
     const totalH = lines.length * fontSize * 1.18;
     if (totalH <= availableH) break;
@@ -480,7 +514,7 @@ async function generateCard({ color, label, question, footer }) {
   ctx.shadowBlur = 0;
 
   if (footer) {
-    ctx.font = `${Math.round(H * 0.034)}px sans-serif`;
+    ctx.font = `${Math.round(H * 0.034)}px "${FONT_FAMILY}"`;
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
