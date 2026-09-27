@@ -222,7 +222,7 @@ async function handleButton(interaction, client, store, roundManager) {
     const modal = new ModalBuilder().setCustomId('modal_interval').setTitle("Intervalle entre les manches");
     const input = new TextInputBuilder()
       .setCustomId('input_interval')
-      .setLabel('Secondes entre chaque manche automatique (5-86400)')
+      .setLabel('Secondes entre les manches (5-86400)')
       .setStyle(TextInputStyle.Short)
       .setPlaceholder('Ex : 25')
       .setValue(String(store.getSettings().intervalSeconds))
